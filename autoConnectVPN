@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# Define the root folder where the subfolders are located
+BASE_VPN_FOLDER="$HOME/VPNBOOK-Auto-Connect/vpn_downloads"
+
+# List only the folders inside VPN_FOLDER (subfolders of vpn_downloads)
+FOLDERS=()
+for dir in "$BASE_VPN_FOLDER"/*; do
+    if [ -d "$dir" ]; then
+        FOLDERS+=("$dir")
+    fi
+done
+FOLDER_COUNT=${#FOLDERS[@]}
+
+# If there is only one folder, select it automatically
+if [ "$FOLDER_COUNT" -eq 1 ]; then
+    SELECTED_FOLDER="${FOLDERS[0]}"
+    echo "Only one folder was found, automatically selected: $SELECTED_FOLDER"
+else
+    echo "Available folders inside $BASE_VPN_FOLDER:"
+    for i in "${!FOLDERS[@]}"; do
+        echo "$((i+1)). ${FOLDERS[$i]}"
+    done
+
+    # Prompt the user to select a folder
+    echo -n "Select a folder (number): "
+    read FOLDER_SELECTION
+
+    # Validate the folder selection
+    if [[ ! "$FOLDER_SELECTION" =~ ^[0-9]+$ ]] || [ "$FOLDER_SELECTION" -lt 1 ] || [ "$FOLDER_SELECTION" -gt "$FOLDER_COUNT" ]; then
+        echo "Invalid folder selection."
+        exit 1
+    fi
+
+    # Get the selected folder
+    SELECTED_FOLDER="${FOLDERS[$((FOLDER_SELECTION-1))]}"
+fi
+
+# Check if the selected folder has .ovpn files
+echo "Available .ovpn files in $SELECTED_FOLDER:"
+FILES=("$SELECTED_FOLDER"/*.ovpn)
+if [ ${#FILES[@]} -eq 0 ]; then
+    echo "No .ovpn files found in the selected folder."
+    exit 1
+fi
+
+# List the .ovpn files available in the selected folder
+for i in "${!FILES[@]}"; do
+    echo "$((i+1)). ${FILES[$i]}"
+done
+
+
+# Keep the execution active
+echo "OpenVPN is running in the background. To stop it, press Ctrl+C."
+
+# Prompt the user to select a .ovpn file
+echo -n "Select an option (number): "
+read SELECTION
+
+# Validate the selection
+if [[ ! "$SELECTION" =~ ^[0-9]+$ ]] || [ "$SELECTION" -lt 1 ] || [ "$SELECTION" -gt "${#FILES[@]}" ]; then
+    echo "Invalid selection."
+    exit 1
+fi
+
+# Get the selected file
+SELECTED_FILE="${FILES[$((SELECTION-1))]}"
+
+# Define the credentials folder
+CREDENTIALS_FOLDER="$HOME/VPNBOOK-Auto-Connect/vpnbook_credentials"
+
+# Check if the credentials exist
+if [ ! -f "$CREDENTIALS_FOLDER/username.txt" ] || [ ! -f "$CREDENTIALS_FOLDER/password.txt" ]; then
+    echo "Credentials are not available. Make sure you have saved them correctly in $CREDENTIALS_FOLDER."
+    exit 1
+fi
+
+# Read the credentials
+USERNAME=$(cat "$CREDENTIALS_FOLDER/username.txt")
+PASSWORD=$(cat "$CREDENTIALS_FOLDER/password.txt")
+
+# Create a temporary file for the credentials
+CRED_FILE=$(mktemp)
+echo "$USERNAME" > $CRED_FILE
+echo "$PASSWORD" >> $CRED_FILE
+
+# Display the selected file
+echo "You have selected: $SELECTED_FILE"
+
+# Run OpenVPN using expect to automate the credential entry
+echo "Running OpenVPN..."
+
+# Change to the VPN configuration directory
+cd "$CREDENTIALS_FOLDER"
+
+# Run OpenVPN
+sudo openvpn --config "$SELECTED_FILE" --auth-user-pass "$CRED_FILE"
