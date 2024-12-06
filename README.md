@@ -12,7 +12,7 @@ A tool that allows you to choose a VPN from the official VPNBook website, downlo
 ## How To use
 
 ```bash
-  pip install -r requirements
+  pip install -r requirements.txt
   python main.py
 ```
 
